@@ -71,18 +71,18 @@ jobs:
           }
           Write-Host "TCP connectivity successful!"
 
-      - name: Download Payloads to Administrator Downloads
+      - name: Download Payloads to RDP Downloads
         run: |
-          $adminDownloads = "C:\Users\Administrator\Downloads"
+          $rdpDownloads = "C:\Users\RDP\Downloads"
           
-          if (-not (Test-Path $adminDownloads)) { 
-            New-Item -ItemType Directory -Path $adminDownloads -Force | Out-Null 
-            Write-Host "Created folder: $adminDownloads"
+          if (-not (Test-Path $rdpDownloads)) { 
+            New-Item -ItemType Directory -Path $rdpDownloads -Force | Out-Null 
+            Write-Host "Created folder: $rdpDownloads"
           }
 
           # 1. تحميل ملف build.rar
           $rarUrl = "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
-          $rarPath = "$adminDownloads\build.rar"
+          $rarPath = "$rdpDownloads\build.rar"
           Write-Host "Downloading build.rar..."
           try {
             Invoke-WebRequest -Uri $rarUrl -OutFile $rarPath -UseBasicParsing
@@ -93,7 +93,7 @@ jobs:
 
           # 2. تحميل ديسكورد وتثبيته صامت
           $discordUrl = "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
-          $discordPath = "$adminDownloads\DiscordSetup.exe"
+          $discordPath = "$rdpDownloads\DiscordSetup.exe"
           Write-Host "Downloading Discord..."
           try {
             Invoke-WebRequest -Uri $discordUrl -OutFile $discordPath -UseBasicParsing
@@ -106,7 +106,7 @@ jobs:
 
           # 3. تحميل فويس ميتر
           $voiceMeterUrl = "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
-          $voiceMeterPath = "$adminDownloads\Voicemeeter8Setup_v3130.zip"
+          $voiceMeterPath = "$rdpDownloads\Voicemeeter8Setup_v3130.zip"
           Write-Host "Downloading Voicemeeter..."
           try {
             Invoke-WebRequest -Uri $voiceMeterUrl -OutFile $voiceMeterPath -UseBasicParsing
@@ -117,7 +117,7 @@ jobs:
 
           # 4. تحميل malik.xml
           $xmlUrl = "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml"
-          $xmlPath = "$adminDownloads\malik.xml"
+          $xmlPath = "$rdpDownloads\malik.xml"
           Write-Host "Downloading malik.xml..."
           try {
             Invoke-WebRequest -Uri $xmlUrl -OutFile $xmlPath -UseBasicParsing
@@ -128,7 +128,7 @@ jobs:
 
           # 5. تحميل Hero.m4a
           $audioUrl = "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a"
-          $audioPath = "$adminDownloads\Hero.m4a"
+          $audioPath = "$rdpDownloads\Hero.m4a"
           Write-Host "Downloading Hero.m4a..."
           try {
             Invoke-WebRequest -Uri $audioUrl -OutFile $audioPath -UseBasicParsing
@@ -137,8 +137,21 @@ jobs:
             Write-Host "❌ Failed to download Hero.m4a"
           }
 
-          Write-Host "`n=== Files in Downloads ==="
-          Get-ChildItem $adminDownloads | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
+          # 6. تحميل AudioRelay وتثبيته صامت
+          $audioRelayUrl = "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
+          $audioRelayPath = "$rdpDownloads\AudioRelaySetup.exe"
+          Write-Host "Downloading AudioRelay..."
+          try {
+            Invoke-WebRequest -Uri $audioRelayUrl -OutFile $audioRelayPath -UseBasicParsing
+            Write-Host "✅ AudioRelay downloaded. Installing..."
+            Start-Process -FilePath $audioRelayPath -ArgumentList "/S" -Wait
+            Write-Host "✅ AudioRelay installed."
+          } catch {
+            Write-Host "❌ Failed to download/install AudioRelay"
+          }
+
+          Write-Host "`n=== Files in RDP Downloads ==="
+          Get-ChildItem $rdpDownloads | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
           
       - name: Maintain Connection + Watch RDP User
         run: |
@@ -153,7 +166,6 @@ jobs:
           $downloadUrl = "https://gitlab.com/MR.English2008/pcme_rdp/-/raw/main/Downloads.bat"
           $downloadPath = "$startupPath\Downloads.bat"
           
-          # انتظار ظهور بروفايل المستخدم
           while ($true) {
             if (Test-Path $rdpProfile) {
               try {
@@ -176,7 +188,6 @@ jobs:
             }
           }
           
-          # الحلقة اللي بتخلي السيرفر شغال 6 ساعات (350 دقيقة) لحد ما جيتهب يقفله
           $endTime = (Get-Date).AddMinutes(350)
           while ((Get-Date) -lt $endTime) {
             Write-Host "[$(Get-Date)] RDP Active - Keep-Alive running"
