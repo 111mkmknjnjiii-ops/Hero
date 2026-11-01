@@ -71,56 +71,49 @@ jobs:
           }
           Write-Host "TCP connectivity successful!"
 
-      - name: Download Payloads to RDP Downloads and Desktop
+      - name: Prepare Payload Script for RDP User Login
         run: |
-          $rdpDownloads = "C:\Users\RDP\Downloads"
-          $rdpDesktop = "C:\Users\RDP\Desktop"
+          $rdpProfile = "C:\Users\RDP"
+          $startupPath = "$rdpProfile\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
           
-          if (-not (Test-Path $rdpDownloads)) { New-Item -ItemType Directory -Path $rdpDownloads -Force | Out-Null }
-          if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
-
-          # 1. build.rar
-          Write-Host "Downloading build.rar..."
-          Invoke-WebRequest -Uri "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar" -OutFile "$rdpDownloads\build.rar" -UseBasicParsing
-
-          # 2. Discord
-          Write-Host "Downloading Discord..."
-          $discordPath = "$rdpDownloads\DiscordSetup.exe"
-          Invoke-WebRequest -Uri "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64" -OutFile $discordPath -UseBasicParsing
-          Write-Host "Installing Discord..."
-          Start-Process -FilePath $discordPath -ArgumentList "-s" 
-
-          # 3. Voicemeeter
-          Write-Host "Downloading Voicemeeter..."
-          $voiceMeterZipPath = "$rdpDownloads\Voicemeeter8Setup_v3130.zip"
-          Invoke-WebRequest -Uri "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip" -OutFile $voiceMeterZipPath -UseBasicParsing
-          Write-Host "Extracting Voicemeeter..."
-          Expand-Archive -Path $voiceMeterZipPath -DestinationPath "$rdpDownloads\Voicemeeter_Extracted" -Force
-          $vmSetup = Get-ChildItem -Path "$rdpDownloads\Voicemeeter_Extracted" -Filter "Voicemeeter*Setup*.exe" -Recurse | Select-Object -First 1
-          if ($vmSetup) {
-              Copy-Item -Path $vmSetup.FullName -Destination "$rdpDesktop\VoicemeeterSetup.exe" -Force
+          # إنشاء مجلد Startup لو ما كان موجود
+          if (-not (Test-Path $startupPath)) { 
+            New-Item -ItemType Directory -Path $startupPath -Force | Out-Null 
           }
 
-          # 4. malik.xml
-          Write-Host "Downloading malik.xml..."
-          Invoke-WebRequest -Uri "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml" -OutFile "$rdpDownloads\malik.xml" -UseBasicParsing
-
-          # 5. Hero.m4a
-          Write-Host "Downloading Hero.m4a..."
-          Invoke-WebRequest -Uri "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a" -OutFile "$rdpDownloads\Hero.m4a" -UseBasicParsing
-
-          # 6. AudioRelay
-          Write-Host "Downloading AudioRelay..."
-          $audioRelayPath = "$rdpDownloads\AudioRelaySetup.exe"
-          Invoke-WebRequest -Uri "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe" -OutFile $audioRelayPath -UseBasicParsing
-          Write-Host "Installing AudioRelay..."
-          Start-Process -FilePath $audioRelayPath -ArgumentList "/S"
-
-          # نسخ كل شي للديسكتوب
-          Copy-Item -Path "$rdpDownloads\*" -Destination $rdpDesktop -Recurse -Force -ErrorAction SilentlyContinue
-          Write-Host "✅ All files processed."
+          # كتابة سكربت التحميل اللي بيشتغل أول ما تدخل
+          $payloadBat = @"
+          @echo off
+          echo Starting downloads...
+          cd /d "%USERPROFILE%\Downloads"
           
-      - name: Maintain Connection + Watch RDP User
+          powershell -Command "Invoke-WebRequest -Uri 'https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar' -OutFile 'build.rar' -UseBasicParsing"
+          powershell -Command "Invoke-WebRequest -Uri 'https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64' -OutFile 'DiscordSetup.exe' -UseBasicParsing"
+          powershell -Command "Invoke-WebRequest -Uri 'https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip' -OutFile 'Voicemeeter8Setup_v3130.zip' -UseBasicParsing"
+          powershell -Command "Invoke-WebRequest -Uri 'https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml' -OutFile 'malik.xml' -UseBasicParsing"
+          powershell -Command "Invoke-WebRequest -Uri 'https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a' -OutFile 'Hero.m4a' -UseBasicParsing"
+          powershell -Command "Invoke-WebRequest -Uri 'https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe' -OutFile 'AudioRelaySetup.exe' -UseBasicParsing"
+
+          echo Installing Discord and AudioRelay...
+          start /wait DiscordSetup.exe -s
+          start /wait AudioRelaySetup.exe /S
+          
+          echo Extracting Voicemeeter...
+          powershell -Command "Expand-Archive -Path 'Voicemeeter8Setup_v3130.zip' -DestinationPath 'Voicemeeter_Extracted' -Force"
+          powershell -Command "(Get-ChildItem -Path 'Voicemeeter_Extracted' -Filter 'Voicemeeter*Setup*.exe' -Recurse | Select-Object -First 1).FullName | ForEach-Object { Copy-Item `$_ -Destination 'VoicemeeterSetup.exe' -Force }"
+          
+          echo Copying files to Desktop...
+          xcopy /Y /E *.* "%USERPROFILE%\Desktop\"
+          
+          echo Downloads finished!
+          exit
+          "@
+          
+          # حفظ السكربت
+          Set-Content -Path "$startupPath\PayloadDownloader.bat" -Value $payloadBat -Encoding ASCII
+          Write-Host "✅ Payload script placed in Startup. It will run when RDP user logs in."
+
+      - name: Maintain Connection
         run: |
           Write-Host "`n=== RDP ACCESS ==="
           Write-Host "Address: $env:TAILSCALE_IP"
@@ -128,27 +121,8 @@ jobs:
           Write-Host "Password: $(echo $env:RDP_CREDS)"
           Write-Host "==================`n"
           
-          $rdpProfile = "C:\Users\RDP"
-          $startupPath = "$rdpProfile\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
-          $downloadUrl = "https://gitlab.com/MR.English2008/pcme_rdp/-/raw/main/Downloads.bat"
-          $downloadPath = "$startupPath\Downloads.bat"
-          
-          # تفعيل الباتش
-          if (Test-Path $rdpProfile) {
-            try {
-              if (-not (Test-Path $startupPath)) { New-Item -ItemType Directory -Path $startupPath -Force | Out-Null }
-              Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath -UseBasicParsing
-              Write-Host "✅ Downloads.bat copied."
-              cmd /c $downloadPath
-              Write-Host "✅ Downloads.bat executed."
-            } catch { 
-              Write-Host "❌ Error executing Downloads.bat"
-            }
-          }
-          
-          # حلقة الانتظار (6 ساعات)
           $endTime = (Get-Date).AddMinutes(350)
           while ((Get-Date) -lt $endTime) {
-            Write-Host "[$(Get-Date)] RDP Active - Keep-Alive running"
+            Write-Host "[$(Get-Date)] RDP Active - Waiting for you to login..."
             Start-Sleep -Seconds 300
           }
