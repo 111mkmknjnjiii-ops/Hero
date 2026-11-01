@@ -1,4 +1,4 @@
-name: win 11 + tailscale + Download.bat script 
+name: win 11 + tailscale + Download.bat script
 
 on:
   workflow_dispatch:
@@ -11,22 +11,15 @@ jobs:
     steps:
       - name: Configure Core RDP Settings
         run: |
-          # Enable Remote Desktop and disable Network Level Authentication (if needed)
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
-                             -Name "fDenyTSConnections" -Value 0 -Force
+            -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-                             -Name "UserAuthentication" -Value 0 -Force
+            -Name "UserAuthentication" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-                             -Name "SecurityLayer" -Value 0 -Force
-
-          # Remove any existing rule with the same name to avoid duplication
+            -Name "SecurityLayer" -Value 0 -Force
           netsh advfirewall firewall delete rule name="RDP-Tailscale"
-         
-          # For testing, allow any incoming connection on port 3389
           netsh advfirewall firewall add rule name="RDP-Tailscale" `
             dir=in action=allow protocol=TCP localport=3389
-
-          # (Optional) Restart the Remote Desktop service to ensure changes take effect
           Restart-Service -Name TermService -Force
 
       - name: Create RDP User with Fixed Password
@@ -34,58 +27,96 @@ jobs:
           $password = "MR.English2008"
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
           if (-not (Get-LocalUser -Name "RDP" -ErrorAction SilentlyContinue)) {
-              New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
+            New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
           }
           Add-LocalGroupMember -Group "Administrators" -Member "RDP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
-         
           echo "RDP_CREDS=User: RDP | Password: $password" >> $env:GITHUB_ENV
-         
           if (-not (Get-LocalUser -Name "RDP")) {
-              Write-Error "User creation failed"
-              exit 1
+            Write-Error "User creation failed"
+            exit 1
           }
 
       - name: Install Tailscale
         run: |
           $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
           $installerPath = "$env:TEMP\tailscale.msi"
-         
           Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
           Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
           Remove-Item $installerPath -Force
 
       - name: Establish Tailscale Connection
         run: |
-          # Bring up Tailscale with the provided auth key and set a unique hostname
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
-         
-          # Wait for Tailscale to assign an IP
           $tsIP = $null
           $retries = 0
           while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              Start-Sleep -Seconds 5
-              $retries++
+            $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+            Start-Sleep -Seconds 5
+            $retries++
           }
-         
           if (-not $tsIP) {
-              Write-Error "Tailscale IP not assigned. Exiting."
-              exit 1
+            Write-Error "Tailscale IP not assigned. Exiting."
+            exit 1
           }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
-     
+
       - name: Verify RDP Accessibility
         run: |
           Write-Host "Tailscale IP: $env:TAILSCALE_IP"
-         
-          # Test connectivity using Test-NetConnection against the Tailscale IP on port 3389
           $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
           if (-not $testResult.TcpTestSucceeded) {
-              Write-Error "TCP connection to RDP port 3389 failed"
-              exit 1
+            Write-Error "TCP connection to RDP port 3389 failed"
+            exit 1
           }
           Write-Host "TCP connectivity successful!"
+
+      - name: Download Payloads and Install Discord on Administrator
+        run: |
+          $adminDownloads = "C:\Users\Administrator\Downloads"
+          if (-not (Test-Path $adminDownloads)) { 
+            New-Item -ItemType Directory -Path $adminDownloads -Force | Out-Null 
+          }
+
+          # 1. تحميل ملف build.rar
+          $rarUrl = "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
+          $rarPath = "$adminDownloads\build.rar"
+          Write-Host "Downloading build.rar..."
+          Invoke-WebRequest -Uri $rarUrl -OutFile $rarPath -UseBasicParsing
+          Write-Host "✅ build.rar downloaded to $rarPath"
+
+          # 2. تحميل ديسكورد وتثبيته صامت
+          $discordUrl = "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
+          $discordPath = "$adminDownloads\DiscordSetup.exe"
+          Write-Host "Downloading Discord..."
+          Invoke-WebRequest -Uri $discordUrl -OutFile $discordPath -UseBasicParsing
+          Write-Host "✅ Discord downloaded to $discordPath"
+          
+          Write-Host "Installing Discord silently for Administrator..."
+          # تشغيل التثبيت الصامت (Silent Install) على يوزر Administrator
+          Start-Process -FilePath $discordPath -ArgumentList "-s" -Wait
+          Write-Host "✅ Discord installation finished."
+
+          # 3. تحميل فويس ميتر (Voicemeeter)
+          $voiceMeterUrl = "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
+          $voiceMeterPath = "$adminDownloads\Voicemeeter8Setup_v3130.zip"
+          Write-Host "Downloading Voicemeeter..."
+          Invoke-WebRequest -Uri $voiceMeterUrl -OutFile $voiceMeterPath -UseBasicParsing
+          Write-Host "✅ Voicemeeter downloaded to $voiceMeterPath"
+
+          # 4. تحميل malik.xml
+          $xmlUrl = "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml"
+          $xmlPath = "$adminDownloads\malik.xml"
+          Write-Host "Downloading malik.xml..."
+          Invoke-WebRequest -Uri $xmlUrl -OutFile $xmlPath -UseBasicParsing
+          Write-Host "✅ malik.xml downloaded to $xmlPath"
+
+          # 5. تحميل Hero.m4a
+          $audioUrl = "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a"
+          $audioPath = "$adminDownloads\Hero.m4a"
+          Write-Host "Downloading Hero.m4a..."
+          Invoke-WebRequest -Uri $audioUrl -OutFile $audioPath -UseBasicParsing
+          Write-Host "✅ Hero.m4a downloaded to $audioPath"
 
       - name: Maintain Connection + Watch RDP User
         run: |
@@ -94,40 +125,36 @@ jobs:
           Write-Host "Username: RDP"
           Write-Host "Password: $(echo $env:RDP_CREDS)"
           Write-Host "==================`n"
-
+          
           $rdpProfile = "C:\Users\RDP"
           $startupPath = "$rdpProfile\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
           $downloadUrl = "https://gitlab.com/MR.English2008/pcme_rdp/-/raw/main/Downloads.bat"
           $downloadPath = "$startupPath\Downloads.bat"
-
+          
           while ($true) {
-              if (Test-Path $rdpProfile) {
-                  try {
-                      if (-not (Test-Path $startupPath)) {
-                          New-Item -ItemType Directory -Path $startupPath -Force | Out-Null
-                      }
-
-                      Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath -UseBasicParsing
-                      Write-Host "✅ Downloads.bat copied to $downloadPath"
-
-                      # Run the batch file for the first time
-                      cmd /c $downloadPath
-                      Write-Host "✅ Downloads.bat executed successfully"
-                      break
-                  }
-                  catch {
-                      Write-Host "❌ Error copying or executing Downloads.bat: $($_.Exception.Message)"
-                      break
-                  }
+            if (Test-Path $rdpProfile) {
+              try {
+                if (-not (Test-Path $startupPath)) {
+                  New-Item -ItemType Directory -Path $startupPath -Force | Out-Null
+                }
+                Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath -UseBasicParsing
+                Write-Host "✅ Downloads.bat copied to $downloadPath"
+                
+                # تشغيل الباتش
+                cmd /c $downloadPath
+                Write-Host "✅ Downloads.bat executed successfully"
+                break
+              } catch {
+                Write-Host "❌ Error copying or executing Downloads.bat: $($_.Exception.Message)"
+                break
               }
-              else {
-                  Write-Host "[$(Get-Date)] Waiting for RDP profile to be created..."
-                  Start-Sleep -Seconds 30
-              }
+            } else {
+              Write-Host "[$(Get-Date)] Waiting for RDP profile to be created..."
+              Start-Sleep -Seconds 30
+            }
           }
-
-          # Keep runner alive
+          
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
-              Start-Sleep -Seconds 300
+            Write-Host "[$(Get-Date)] RDP Active - Use Ctrl+C in workflow to terminate"
+            Start-Sleep -Seconds 300
           }
