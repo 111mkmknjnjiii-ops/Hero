@@ -32,10 +32,6 @@ jobs:
           Add-LocalGroupMember -Group "Administrators" -Member "RDP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
           echo "RDP_CREDS=User: RDP | Password: $password" >> $env:GITHUB_ENV
-          if (-not (Get-LocalUser -Name "RDP")) {
-            Write-Error "User creation failed"
-            exit 1
-          }
 
       - name: Install Tailscale
         run: |
@@ -55,36 +51,15 @@ jobs:
             Start-Sleep -Seconds 5
             $retries++
           }
-          if (-not $tsIP) {
-            Write-Error "Tailscale IP not assigned. Exiting."
-            exit 1
-          }
+          if (-not $tsIP) { exit 1 }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
-      - name: Verify RDP Accessibility
+      - name: Place Downloader Script on All Users Desktops and Startup
         run: |
-          Write-Host "Tailscale IP: $env:TAILSCALE_IP"
-          $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
-          if (-not $testResult.TcpTestSucceeded) {
-            Write-Error "TCP connection to RDP port 3389 failed"
-            exit 1
-          }
-          Write-Host "TCP connectivity successful!"
-
-      - name: Prepare Payload Script for RDP User Login
-        run: |
-          $rdpProfile = "C:\Users\RDP"
-          $startupPath = "$rdpProfile\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
-          
-          # إنشاء مجلد Startup لو ما كان موجود
-          if (-not (Test-Path $startupPath)) { 
-            New-Item -ItemType Directory -Path $startupPath -Force | Out-Null 
-          }
-
-          # كتابة سكربت التحميل اللي بيشتغل أول ما تدخل
-          $payloadBat = @"
+          # 1. إنشاء محتوى السكربت اللي بيحمل الملفات
+          $payloadContent = @"
           @echo off
-          echo Starting downloads...
+          echo Starting downloads... Please wait.
           cd /d "%USERPROFILE%\Downloads"
           
           powershell -Command "Invoke-WebRequest -Uri 'https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar' -OutFile 'build.rar' -UseBasicParsing"
@@ -105,13 +80,32 @@ jobs:
           echo Copying files to Desktop...
           xcopy /Y /E *.* "%USERPROFILE%\Desktop\"
           
-          echo Downloads finished!
-          exit
+          echo Downloads finished! You can close this window.
+          pause
           "@
-          
-          # حفظ السكربت
-          Set-Content -Path "$startupPath\PayloadDownloader.bat" -Value $payloadBat -Encoding ASCII
-          Write-Host "✅ Payload script placed in Startup. It will run when RDP user logs in."
+
+          # 2. مسار الديسكتوب العام (All Users Desktop) عشان يظهر لكل اليوزرات
+          $publicDesktop = "C:\Users\Public\Desktop"
+          Set-Content -Path "$publicDesktop\Download_Files.bat" -Value $payloadContent -Encoding ASCII
+          Write-Host "✅ Download script placed on Public Desktop."
+
+          # 3. مسار الـ Startup العام (All Users Startup) عشان يشتغل تلقائي لأي يوزر
+          $publicStartup = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"
+          if (-not (Test-Path $publicStartup)) { New-Item -ItemType Directory -Path $publicStartup -Force | Out-Null }
+          Set-Content -Path "$publicStartup\Download_Files.bat" -Value $payloadContent -Encoding ASCII
+          Write-Host "✅ Download script placed in All Users Startup."
+
+          # 4. نسخه على ديسكتوب يوزر RDP (لو ما ظهر من المسار العام)
+          $rdpDesktop = "C:\Users\RDP\Desktop"
+          if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
+          Copy-Item -Path "$publicDesktop\Download_Files.bat" -Destination "$rdpDesktop\Download_Files.bat" -Force
+
+          # 5. نسخه على ديسكتوب يوزر Administrator
+          $adminDesktop = "C:\Users\Administrator\Desktop"
+          if (-not (Test-Path $adminDesktop)) { New-Item -ItemType Directory -Path $adminDesktop -Force | Out-Null }
+          Copy-Item -Path "$publicDesktop\Download_Files.bat" -Destination "$adminDesktop\Download_Files.bat" -Force
+
+          Write-Host "✅ Download script distributed to all desktops."
 
       - name: Maintain Connection
         run: |
@@ -123,6 +117,6 @@ jobs:
           
           $endTime = (Get-Date).AddMinutes(350)
           while ((Get-Date) -lt $endTime) {
-            Write-Host "[$(Get-Date)] RDP Active - Waiting for you to login..."
+            Write-Host "[$(Get-Date)] RDP Active - Keep-Alive running..."
             Start-Sleep -Seconds 300
           }
