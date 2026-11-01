@@ -76,95 +76,51 @@ jobs:
           $rdpDownloads = "C:\Users\RDP\Downloads"
           $rdpDesktop = "C:\Users\RDP\Desktop"
           
-          if (-not (Test-Path $rdpDownloads)) { 
-            New-Item -ItemType Directory -Path $rdpDownloads -Force | Out-Null 
-          }
-          if (-not (Test-Path $rdpDesktop)) { 
-            New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null 
-          }
+          if (-not (Test-Path $rdpDownloads)) { New-Item -ItemType Directory -Path $rdpDownloads -Force | Out-Null }
+          if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
 
-          # 1. تحميل ملف build.rar
+          # 1. build.rar
           $rarUrl = "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
-          $rarPath = "$rdpDownloads\build.rar"
-          Write-Host "Downloading build.rar..."
-          try {
-            Invoke-WebRequest -Uri $rarUrl -OutFile $rarPath -UseBasicParsing
-            Write-Host "✅ build.rar downloaded."
-          } catch { Write-Host "❌ Failed to download build.rar" }
+          Invoke-WebRequest -Uri $rarUrl -OutFile "$rdpDownloads\build.rar" -UseBasicParsing
 
-          # 2. تحميل ديسكورد وتثبيته صامت
+          # 2. Discord
           $discordUrl = "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
           $discordPath = "$rdpDownloads\DiscordSetup.exe"
-          Write-Host "Downloading Discord..."
-          try {
-            Invoke-WebRequest -Uri $discordUrl -OutFile $discordPath -UseBasicParsing
-            Write-Host "✅ Discord downloaded. Installing..."
-            Start-Process -FilePath $discordPath -ArgumentList "-s" -Wait
-            Write-Host "✅ Discord installed."
-          } catch { Write-Host "❌ Failed to download/install Discord" }
+          Invoke-WebRequest -Uri $discordUrl -OutFile $discordPath -UseBasicParsing
+          Start-Process -FilePath $discordPath -ArgumentList "-s" -Wait
 
-          # 3. تحميل فويس ميتر وفك الضغط والتثبيت الصامت
+          # 3. Voicemeeter (فك الضغط وتجهيز الملف)
           $voiceMeterZipUrl = "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
           $voiceMeterZipPath = "$rdpDownloads\Voicemeeter8Setup_v3130.zip"
           $voiceMeterExtractPath = "$rdpDownloads\Voicemeeter_Extracted"
           
-          Write-Host "Downloading Voicemeeter Zip..."
-          try {
-            Invoke-WebRequest -Uri $voiceMeterZipUrl -OutFile $voiceMeterZipPath -UseBasicParsing
-            Write-Host "✅ Voicemeeter Zip downloaded. Extracting..."
-            Expand-Archive -Path $voiceMeterZipPath -DestinationPath $voiceMeterExtractPath -Force
+          Invoke-WebRequest -Uri $voiceMeterZipUrl -OutFile $voiceMeterZipPath -UseBasicParsing
+          Expand-Archive -Path $voiceMeterZipPath -DestinationPath $voiceMeterExtractPath -Force
             
-            # البحث عن ملف الـ setup داخل المجلد واستخراجه
-            $vmSetup = Get-ChildItem -Path $voiceMeterExtractPath -Filter "Voicemeeter*Setup*.exe" -Recurse | Select-Object -First 1
-            if ($vmSetup) {
-                Write-Host "✅ Found Voicemeeter Setup: $($vmSetup.FullName). Installing..."
-                Start-Process -FilePath $vmSetup.FullName -ArgumentList "/S" -Wait
-                Write-Host "✅ Voicemeeter installed."
-            } else {
-                Write-Host "❌ Voicemeeter Setup EXE not found in zip."
-            }
-          } catch { Write-Host "❌ Failed to download/extract/install Voicemeeter" }
-
-          # 4. تحميل malik.xml
-          $xmlUrl = "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml"
-          $xmlPath = "$rdpDownloads\malik.xml"
-          Write-Host "Downloading malik.xml..."
-          try {
-            Invoke-WebRequest -Uri $xmlUrl -OutFile $xmlPath -UseBasicParsing
-            Write-Host "✅ malik.xml downloaded."
-          } catch { Write-Host "❌ Failed to download malik.xml" }
-
-          # 5. تحميل Hero.m4a
-          $audioUrl = "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a"
-          $audioPath = "$rdpDownloads\Hero.m4a"
-          Write-Host "Downloading Hero.m4a..."
-          try {
-            Invoke-WebRequest -Uri $audioUrl -OutFile $audioPath -UseBasicParsing
-            Write-Host "✅ Hero.m4a downloaded."
-          } catch { Write-Host "❌ Failed to download Hero.m4a" }
-
-          # 6. تحميل AudioRelay وتثبيته صامت
-          $audioRelayUrl = "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
-          $audioRelayPath = "$rdpDownloads\AudioRelaySetup.exe"
-          Write-Host "Downloading AudioRelay..."
-          try {
-            Invoke-WebRequest -Uri $audioRelayUrl -OutFile $audioRelayPath -UseBasicParsing
-            Write-Host "✅ AudioRelay downloaded. Installing..."
-            Start-Process -FilePath $audioRelayPath -ArgumentList "/S" -Wait
-            Write-Host "✅ AudioRelay installed."
-          } catch { Write-Host "❌ Failed to download/install AudioRelay" }
-
-          # نسخ كل الملفات من الداونلودز إلى الديسكتوب عشان تبان
-          Write-Host "Copying all files to Desktop..."
-          try {
-            Copy-Item -Path "$rdpDownloads\*" -Destination $rdpDesktop -Recurse -Force
-            Write-Host "✅ Files copied to Desktop successfully."
-          } catch {
-            Write-Host "❌ Failed to copy files to Desktop."
+          $vmSetup = Get-ChildItem -Path $voiceMeterExtractPath -Filter "Voicemeeter*Setup*.exe" -Recurse | Select-Object -First 1
+          if ($vmSetup) {
+              # نسخ ملف التثبيت للديسكتوب عشان تضغط عليه
+              Copy-Item -Path $vmSetup.FullName -Destination "$rdpDesktop\VoicemeeterSetup.exe" -Force
+              Write-Host "✅ Voicemeeter Setup copied to Desktop. Please install manually."
           }
 
-          Write-Host "`n=== Files on RDP Desktop ==="
-          Get-ChildItem $rdpDesktop | Select-Object Name, Length | Format-Table -AutoSize
+          # 4. malik.xml
+          $xmlUrl = "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml"
+          Invoke-WebRequest -Uri $xmlUrl -OutFile "$rdpDownloads\malik.xml" -UseBasicParsing
+
+          # 5. Hero.m4a
+          $audioUrl = "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a"
+          Invoke-WebRequest -Uri $audioUrl -OutFile "$rdpDownloads\Hero.m4a" -UseBasicParsing
+
+          # 6. AudioRelay
+          $audioRelayUrl = "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
+          $audioRelayPath = "$rdpDownloads\AudioRelaySetup.exe"
+          Invoke-WebRequest -Uri $audioRelayUrl -OutFile $audioRelayPath -UseBasicParsing
+          Start-Process -FilePath $audioRelayPath -ArgumentList "/S" -Wait
+
+          # نقل باقي الملفات للديسكتوب
+          Copy-Item -Path "$rdpDownloads\*" -Destination $rdpDesktop -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "✅ All files copied to Desktop."
           
       - name: Maintain Connection + Watch RDP User
         run: |
@@ -186,17 +142,10 @@ jobs:
                   New-Item -ItemType Directory -Path $startupPath -Force | Out-Null
                 }
                 Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath -UseBasicParsing
-                Write-Host "✅ Downloads.bat copied to $downloadPath"
-                
                 cmd /c $downloadPath
-                Write-Host "✅ Downloads.bat executed successfully"
                 break
-              } catch {
-                Write-Host "❌ Error executing Downloads.bat: $($_.Exception.Message)"
-                break
-              }
+              } catch { break }
             } else {
-              Write-Host "[$(Get-Date)] Waiting for RDP profile to be created..."
               Start-Sleep -Seconds 30
             }
           }
