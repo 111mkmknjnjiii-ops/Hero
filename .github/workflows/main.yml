@@ -54,9 +54,9 @@ jobs:
           if (-not $tsIP) { exit 1 }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
-      - name: Place Downloader Script on All Users
+      - name: Prepare Manual Download Script on Desktops
         run: |
-          # سكربت التحميل الصاروخي اللي بيعتمد على BITS
+          # سكربت التحميل الصاروخي (BITS)
           $payloadContent = @"
           @echo off
           title Downloading Files... Please Wait
@@ -110,20 +110,21 @@ jobs:
           pause
           "@
 
-          $publicDesktop = "C:\Users\Public\Desktop"
-          Set-Content -Path "$publicDesktop\Download_Files.bat" -Value $payloadContent -Encoding ASCII
-          
+          # مسح أي ملفات قديمة من الـ Startup عشان ما يشتغل تلقائي
           $publicStartup = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"
-          if (-not (Test-Path $publicStartup)) { New-Item -ItemType Directory -Path $publicStartup -Force | Out-Null }
-          Set-Content -Path "$publicStartup\Download_Files.bat" -Value $payloadContent -Encoding ASCII
-
+          if (Test-Path "$publicStartup\Download_Files.bat") { Remove-Item "$publicStartup\Download_Files.bat" -Force -ErrorAction SilentlyContinue }
+          
+          # توزيع الباتش على ديسكتوب RDP
           $rdpDesktop = "C:\Users\RDP\Desktop"
           if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
-          Copy-Item -Path "$publicDesktop\Download_Files.bat" -Destination "$rdpDesktop\Download_Files.bat" -Force
+          Set-Content -Path "$rdpDesktop\Download_Files.bat" -Value $payloadContent -Encoding ASCII
 
+          # توزيع الباتش على ديسكتوب Administrator
           $adminDesktop = "C:\Users\Administrator\Desktop"
           if (-not (Test-Path $adminDesktop)) { New-Item -ItemType Directory -Path $adminDesktop -Force | Out-Null }
-          Copy-Item -Path "$publicDesktop\Download_Files.bat" -Destination "$adminDesktop\Download_Files.bat" -Force
+          Set-Content -Path "$adminDesktop\Download_Files.bat" -Value $payloadContent -Encoding ASCII
+
+          Write-Host "✅ Download script placed on Desktops (Manual Run Only)."
 
       - name: Maintain Connection
         run: |
