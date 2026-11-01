@@ -54,22 +54,48 @@ jobs:
           if (-not $tsIP) { exit 1 }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
-      - name: Place Downloader Script on All Users Desktops and Startup
+      - name: Place Downloader Script on All Users
         run: |
-          # 1. إنشاء محتوى السكربت اللي بيحمل الملفات
+          # سكربت التحميل الصاروخي اللي بيعتمد على BITS
           $payloadContent = @"
           @echo off
-          echo Starting downloads... Please wait.
-          cd /d "%USERPROFILE%\Downloads"
+          title Downloading Files... Please Wait
+          echo Starting downloads...
           
-          powershell -Command "Invoke-WebRequest -Uri 'https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar' -OutFile 'build.rar' -UseBasicParsing"
-          powershell -Command "Invoke-WebRequest -Uri 'https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64' -OutFile 'DiscordSetup.exe' -UseBasicParsing"
-          powershell -Command "Invoke-WebRequest -Uri 'https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip' -OutFile 'Voicemeeter8Setup_v3130.zip' -UseBasicParsing"
-          powershell -Command "Invoke-WebRequest -Uri 'https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml' -OutFile 'malik.xml' -UseBasicParsing"
-          powershell -Command "Invoke-WebRequest -Uri 'https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a' -OutFile 'Hero.m4a' -UseBasicParsing"
-          powershell -Command "Invoke-WebRequest -Uri 'https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe' -OutFile 'AudioRelaySetup.exe' -UseBasicParsing"
+          set TEMP_DIR=%USERPROFILE%\Desktop\TempDownloads
+          if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
+          cd /d "%TEMP_DIR%"
 
-          echo Installing Discord and AudioRelay...
+          echo [1/6] Downloading build.rar...
+          start /b powershell -Command "Start-BitsTransfer -Source 'https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar' -Destination 'build.rar' -DisplayName 'build.rar'"
+
+          echo [2/6] Downloading Discord (Rocket Speed)...
+          start /b powershell -Command "Start-BitsTransfer -Source 'https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64' -Destination 'DiscordSetup.exe' -DisplayName 'DiscordSetup'"
+
+          echo [3/6] Downloading Voicemeeter...
+          start /b powershell -Command "Start-BitsTransfer -Source 'https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip' -Destination 'Voicemeeter8Setup_v3130.zip' -DisplayName 'Voicemeeter'"
+
+          echo [4/6] Downloading malik.xml...
+          start /b powershell -Command "Start-BitsTransfer -Source 'https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml' -Destination 'malik.xml' -DisplayName 'malik'"
+
+          echo [5/6] Downloading Hero.m4a...
+          start /b powershell -Command "Start-BitsTransfer -Source 'https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a' -Destination 'Hero.m4a' -DisplayName 'hero'"
+
+          echo [6/6] Downloading AudioRelay...
+          start /b powershell -Command "Start-BitsTransfer -Source 'https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe' -Destination 'AudioRelaySetup.exe' -DisplayName 'audiorelay'"
+
+          echo Waiting for all downloads to finish...
+          timeout /t 45 /nobreak >nul
+          
+          :check
+          tasklist /FI "IMAGENAME eq powershell.exe" 2>NUL | find /I /N "powershell.exe">NUL
+          if "%ERRORLEVEL%"=="0" (
+              echo Still downloading... please wait.
+              timeout /t 10 /nobreak >nul
+              goto check
+          )
+
+          echo All downloads complete! Installing...
           start /wait DiscordSetup.exe -s
           start /wait AudioRelaySetup.exe /S
           
@@ -80,32 +106,24 @@ jobs:
           echo Copying files to Desktop...
           xcopy /Y /E *.* "%USERPROFILE%\Desktop\"
           
-          echo Downloads finished! You can close this window.
+          echo Finished! You can close this window.
           pause
           "@
 
-          # 2. مسار الديسكتوب العام (All Users Desktop) عشان يظهر لكل اليوزرات
           $publicDesktop = "C:\Users\Public\Desktop"
           Set-Content -Path "$publicDesktop\Download_Files.bat" -Value $payloadContent -Encoding ASCII
-          Write-Host "✅ Download script placed on Public Desktop."
-
-          # 3. مسار الـ Startup العام (All Users Startup) عشان يشتغل تلقائي لأي يوزر
+          
           $publicStartup = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"
           if (-not (Test-Path $publicStartup)) { New-Item -ItemType Directory -Path $publicStartup -Force | Out-Null }
           Set-Content -Path "$publicStartup\Download_Files.bat" -Value $payloadContent -Encoding ASCII
-          Write-Host "✅ Download script placed in All Users Startup."
 
-          # 4. نسخه على ديسكتوب يوزر RDP (لو ما ظهر من المسار العام)
           $rdpDesktop = "C:\Users\RDP\Desktop"
           if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
           Copy-Item -Path "$publicDesktop\Download_Files.bat" -Destination "$rdpDesktop\Download_Files.bat" -Force
 
-          # 5. نسخه على ديسكتوب يوزر Administrator
           $adminDesktop = "C:\Users\Administrator\Desktop"
           if (-not (Test-Path $adminDesktop)) { New-Item -ItemType Directory -Path $adminDesktop -Force | Out-Null }
           Copy-Item -Path "$publicDesktop\Download_Files.bat" -Destination "$adminDesktop\Download_Files.bat" -Force
-
-          Write-Host "✅ Download script distributed to all desktops."
 
       - name: Maintain Connection
         run: |
@@ -117,6 +135,6 @@ jobs:
           
           $endTime = (Get-Date).AddMinutes(350)
           while ((Get-Date) -lt $endTime) {
-            Write-Host "[$(Get-Date)] RDP Active - Keep-Alive running..."
+            Write-Host "[$(Get-Date)] RDP Active - Waiting for you..."
             Start-Sleep -Seconds 300
           }
