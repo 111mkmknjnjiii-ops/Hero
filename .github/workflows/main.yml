@@ -1,147 +1,84 @@
-name: win 11 + tailscale + Download.bat script
+- name: Create Auto-Run Rocket Script
+  run: |
+    # البحث عن مسار البروفايل الحقيقي ليوزر RDP
+    $rdpProfile = Get-ChildItem "C:\Users" -Filter "RDP*" | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+    
+    if ($rdpProfile) {
+        $rdpUserDir = $rdpProfile.FullName
+        Write-Host "Found RDP Profile: $rdpUserDir"
+    } else {
+        # لو ما لقاه، يستخدم المسار الافتراضي
+        $rdpUserDir = "C:\Users\RDP"
+        Write-Host "Using default RDP Profile: $rdpUserDir"
+    }
 
-on:
-  workflow_dispatch:
+    $rdpDesktop = "$rdpUserDir\Desktop"
+    $rdpDownloads = "$rdpUserDir\Downloads"
+    $rdpStartup = "$rdpUserDir\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
 
-jobs:
-  secure-rdp:
-    runs-on: windows-2025
-    timeout-minutes: 350
+    # إنشاء المجلدات
+    foreach ($dir in @($rdpDesktop, $rdpDownloads, $rdpStartup)) {
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    }
 
-    steps:
-      - name: Configure Core RDP Settings
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
-            -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-            -Name "UserAuthentication" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-            -Name "SecurityLayer" -Value 0 -Force
-          netsh advfirewall firewall delete rule name="RDP-Tailscale"
-          netsh advfirewall firewall add rule name="RDP-Tailscale" `
-            dir=in action=allow protocol=TCP localport=3389
-          Restart-Service -Name TermService -Force
+    $payloadContent = @"
+    @echo off
+    title Downloading Files... Please Wait
+    echo Starting Rocket Downloads...
+    
+    set TEMP_DIR=%USERPROFILE%\Downloads\TempDownloads
+    if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
+    cd /d "%TEMP_DIR%"
 
-      - name: Create RDP User and Setup Desktop
-        run: |
-          $password = "MR.English2008"
-          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          if (-not (Get-LocalUser -Name "RDP" -ErrorAction SilentlyContinue)) {
-            New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
-          }
-          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
-          echo "RDP_CREDS=User: RDP | Password: $password" >> $env:GITHUB_ENV
-          
-          # إنشاء مسار الديسكتوب والـ Downloads ليوزر RDP قبل الدخول عشان يجهز له المسار
-          $rdpDesktop = "C:\Users\RDP\Desktop"
-          $rdpDownloads = "C:\Users\RDP\Downloads"
-          if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
-          if (-not (Test-Path $rdpDownloads)) { New-Item -ItemType Directory -Path $rdpDownloads -Force | Out-Null }
+    echo [1/7] Downloading aria2c tool...
+    curl.exe -L -s -o aria2c.exe "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
+    
+    set ARIA=aria2c.exe -x 16 -s 16 -k 1M --file-allocation=none --console-log-level=error
 
-      - name: Install Tailscale
-        run: |
-          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-          $installerPath = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
-          Remove-Item $installerPath -Force
+    echo [2/6] Fetching MediaFire links...
+    for /f "tokens=*" %%a in ('powershell -Command "`$c = (Invoke-WebRequest -Uri 'https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file' -UseBasicParsing).Content; if(`$c -match 'href=\"(https://download[^\"]+)\"'){echo `$matches[1]}"') do set XML_URL=%%a
+    for /f "tokens=*" %%a in ('powershell -Command "`$c = (Invoke-WebRequest -Uri 'https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file' -UseBasicParsing).Content; if(`$c -match 'href=\"(https://download[^\"]+)\"'){echo `$matches[1]}"') do set M4A_URL=%%a
 
-      - name: Establish Tailscale Connection
-        run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
-          $tsIP = $null
-          $retries = 0
-          while (-not $tsIP -and $retries -lt 10) {
-            $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-            Start-Sleep -Seconds 5
-            $retries++
-          }
-          if (-not $tsIP) { exit 1 }
-          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+    echo [3/6] Downloading build.rar...
+    %ARIA% -o build.rar "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
 
-      - name: Create Auto-Run Rocket Script
-        run: |
-          $rdpStartup = "C:\Users\RDP\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
-          if (-not (Test-Path $rdpStartup)) { New-Item -ItemType Directory -Path $rdpStartup -Force | Out-Null }
+    echo [4/6] Downloading Discord...
+    %ARIA% -o DiscordSetup.exe "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
 
-          # سكربت التحميل الصاروخي
-          $payloadContent = @"
-          @echo off
-          title Downloading Files... Please Wait
-          echo Starting Rocket Downloads...
-          echo Please wait, this window will close automatically when done.
-          
-          set TEMP_DIR=%USERPROFILE%\Desktop\TempDownloads
-          if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
-          cd /d "%TEMP_DIR%"
+    echo [5/6] Downloading Voicemeeter and AudioRelay...
+    %ARIA% -o Voicemeeter8Setup_v3130.zip "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
+    %ARIA% -o AudioRelaySetup.exe "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
 
-          echo [1/7] Downloading aria2c tool...
-          curl.exe -L -s -o aria2c.exe "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
-          
-          :: إعدادات التحميل الصاروخي (16 اتصال في نفس الوقت)
-          set ARIA=aria2c.exe -x 16 -s 16 -k 1M --file-allocation=none --console-log-level=error
+    echo [6/6] Downloading MediaFire files...
+    if not "%XML_URL%"=="" %ARIA% -o malik.xml "%XML_URL%"
+    if not "%M4A_URL%"=="" %ARIA% -o Hero.m4a "%M4A_URL%"
 
-          echo [2/6] Fetching MediaFire links...
-          for /f "tokens=*" %%a in ('powershell -Command "$c = (Invoke-WebRequest -Uri 'https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file' -UseBasicParsing).Content; if($c -match 'href=\"(https://download[^\"]+)\"'){echo $matches[1]}"') do set XML_URL=%%a
-          for /f "tokens=*" %%a in ('powershell -Command "$c = (Invoke-WebRequest -Uri 'https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file' -UseBasicParsing).Content; if($c -match 'href=\"(https://download[^\"]+)\"'){echo $matches[1]}"') do set M4A_URL=%%a
+    echo Installing Discord and AudioRelay silently...
+    start /wait DiscordSetup.exe -s
+    start /wait AudioRelaySetup.exe /S
+    
+    echo Extracting Voicemeeter...
+    powershell -Command "Expand-Archive -Path 'Voicemeeter8Setup_v3130.zip' -DestinationPath 'Voicemeeter_Extracted' -Force"
+    powershell -Command "(Get-ChildItem -Path 'Voicemeeter_Extracted' -Filter 'Voicemeeter*Setup*.exe' -Recurse | Select-Object -First 1).FullName | ForEach-Object { Copy-Item `$_ -Destination 'VoicemeeterSetup.exe' -Force }"
+    
+    echo Copying files to Desktop and Downloads...
+    xcopy /Y /E *.* "%USERPROFILE%\Desktop\"
+    xcopy /Y /E *.* "%USERPROFILE%\Downloads\"
+    
+    echo Creating download shortcut on Desktop...
+    (
+    echo @echo off
+    echo cd /d "%%USERPROFILE%%\Downloads\TempDownloads"
+    echo explorer .
+    ) > "%USERPROFILE%\Desktop\Download_Files.bat"
+    
+    del aria2c.exe
+    exit
+    "@
 
-          echo [3/6] Downloading build.rar...
-          %ARIA% -o build.rar "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
-
-          echo [4/6] Downloading Discord...
-          %ARIA% -o DiscordSetup.exe "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
-
-          echo [5/6] Downloading Voicemeeter and AudioRelay...
-          %ARIA% -o Voicemeeter8Setup_v3130.zip "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
-          %ARIA% -o AudioRelaySetup.exe "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
-
-          echo [6/6] Downloading MediaFire files...
-          if not "%XML_URL%"=="" %ARIA% -o malik.xml "%XML_URL%"
-          if not "%M4A_URL%"=="" %ARIA% -o Hero.m4a "%M4A_URL%"
-
-          echo Installing Discord and AudioRelay silently...
-          start /wait DiscordSetup.exe -s
-          start /wait AudioRelaySetup.exe /S
-          
-          echo Extracting Voicemeeter...
-          powershell -Command "Expand-Archive -Path 'Voicemeeter8Setup_v3130.zip' -DestinationPath 'Voicemeeter_Extracted' -Force"
-          powershell -Command "(Get-ChildItem -Path 'Voicemeeter_Extracted' -Filter 'Voicemeeter*Setup*.exe' -Recurse | Select-Object -First 1).FullName | ForEach-Object { Copy-Item `$_ -Destination 'VoicemeeterSetup.exe' -Force }"
-          
-          echo Copying files to Desktop...
-          xcopy /Y /E *.* "%USERPROFILE%\Desktop\"
-          
-          echo ✅ All downloads and installations complete!
-          echo Creating download script on desktop...
-          
-          :: إنشاء الباتش اللي المستخدم بيشغله بنفسه بعدين
-          (
-          echo @echo off
-          echo echo Re-opening TempDownloads...
-          echo cd /d "%%USERPROFILE%%\Desktop\TempDownloads"
-          echo explorer .
-          ) > "%USERPROFILE%\Desktop\Download_Files.bat"
-          
-          del aria2c.exe
-          timeout /t 3 >nul
-          exit
-          "@
-
-          # حفظ الباتش في مجلد الـ Startup عشان يشتغل تلقائي أول ما تدخل
-          Set-Content -Path "$rdpStartup\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
-          
-          Write-Host "✅ Rocket Auto-Run Script placed in RDP Startup."
-          
-      - name: Maintain Connection
-        run: |
-          Write-Host "`n=== RDP ACCESS ==="
-          Write-Host "Address: $env:TAILSCALE_IP"
-          Write-Host "Username: RDP"
-          Write-Host "Password: $(echo $env:RDP_CREDS)"
-          Write-Host "==================`n"
-          
-          $endTime = (Get-Date).AddMinutes(350)
-          while ((Get-Date) -lt $endTime) {
-            Write-Host "[$(Get-Date)] RDP Active - Waiting for you to login..."
-            Start-Sleep -Seconds 300
-          }
+    # حفظ الملف في المسار الحقيقي
+    Set-Content -Path "$rdpDownloads\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
+    Set-Content -Path "$rdpDesktop\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
+    Set-Content -Path "$rdpStartup\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
+    
+    Write-Host "✅ Rocket Script placed in real RDP profile ($rdpUserDir)."
