@@ -1,4 +1,4 @@
-name: win 11 + tailscale + Download.bat script
+name: RDP Rocket Setup
 
 on:
   workflow_dispatch:
@@ -41,8 +41,43 @@ jobs:
           $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
-      - name: Prepare Downloader Script
+      - name: Create Downloader Script
         run: |
+          $payload = @"
+@echo off
+title RDP Downloader
+set TEMP_DIR=%USERPROFILE%\Downloads\TempDownloads
+if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
+cd /d "%TEMP_DIR%"
+
+echo Downloading aria2c...
+curl.exe -L -s -o aria2c.exe "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
+set ARIA=aria2c.exe -x 16 -s 16 -k 1M --file-allocation=none --console-log-level=error
+
+echo Downloading files...
+%ARIA% -o build.rar "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
+%ARIA% -o DiscordSetup.exe "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
+%ARIA% -o Voicemeeter8Setup_v3130.zip "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
+%ARIA% -o AudioRelaySetup.exe "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
+%ARIA% -o malik.xml "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml"
+%ARIA% -o Hero.m4a "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a"
+
+echo Installing...
+start /wait DiscordSetup.exe -s
+start /wait AudioRelaySetup.exe /S
+
+echo Extracting Voicemeeter...
+powershell -Command "Expand-Archive -Path 'Voicemeeter8Setup_v3130.zip' -DestinationPath 'Voicemeeter_Extracted' -Force"
+powershell -Command "(Get-ChildItem -Path 'Voicemeeter_Extracted' -Filter 'Voicemeeter*Setup*.exe' -Recurse | Select-Object -First 1).FullName | ForEach-Object { Copy-Item `$_ -Destination 'VoicemeeterSetup.exe' -Force }"
+
+echo Copying files...
+xcopy /Y /E *.* "%USERPROFILE%\Desktop\"
+xcopy /Y /E *.* "%USERPROFILE%\Downloads\"
+del aria2c.exe
+exit
+"@
+          
+          # حفظ الباتش في المسارات المطلوبة
           $rdpProfile = Get-ChildItem "C:\Users" -Filter "RDP*" | Where-Object { $_.PSIsContainer } | Select-Object -First 1
           if ($rdpProfile) { $rdpUserDir = $rdpProfile.FullName } else { $rdpUserDir = "C:\Users\RDP" }
           
@@ -54,60 +89,9 @@ jobs:
               if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
           }
 
-          $payloadContent = @"
-@echo off
-title Downloading Files... Please Wait
-echo Starting Rocket Downloads...
-set TEMP_DIR=%USERPROFILE%\Downloads\TempDownloads
-if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
-cd /d "%TEMP_DIR%"
-
-echo [1/7] Downloading aria2c tool...
-curl.exe -L -s -o aria2c.exe "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
-set ARIA=aria2c.exe -x 16 -s 16 -k 1M --file-allocation=none --console-log-level=error
-
-echo [2/6] Downloading build.rar...
-%ARIA% -o build.rar "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
-
-echo [3/6] Downloading Discord...
-%ARIA% -o DiscordSetup.exe "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
-
-echo [4/6] Downloading Voicemeeter...
-%ARIA% -o Voicemeeter8Setup_v3130.zip "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
-
-echo [5/6] Downloading AudioRelay...
-%ARIA% -o AudioRelaySetup.exe "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
-
-echo [6/6] Downloading MediaFire files...
-%ARIA% -o malik.xml "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml"
-%ARIA% -o Hero.m4a "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a"
-
-echo Installing Discord and AudioRelay silently...
-start /wait DiscordSetup.exe -s
-start /wait AudioRelaySetup.exe /S
-
-echo Extracting Voicemeeter...
-powershell -Command "Expand-Archive -Path 'Voicemeeter8Setup_v3130.zip' -DestinationPath 'Voicemeeter_Extracted' -Force"
-powershell -Command "(Get-ChildItem -Path 'Voicemeeter_Extracted' -Filter 'Voicemeeter*Setup*.exe' -Recurse | Select-Object -First 1).FullName | ForEach-Object { Copy-Item `$_ -Destination 'VoicemeeterSetup.exe' -Force }"
-
-echo Copying files to Desktop and Downloads...
-xcopy /Y /E *.* "%USERPROFILE%\Desktop\"
-xcopy /Y /E *.* "%USERPROFILE%\Downloads\"
-
-echo Creating download shortcut on Desktop...
-(
-echo @echo off
-echo cd /d "%%USERPROFILE%%\Downloads\TempDownloads"
-echo explorer .
-) > "%USERPROFILE%\Desktop\Download_Files.bat"
-
-del aria2c.exe
-exit
-"@
-
-          Set-Content -Path "$rdpDownloads\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
-          Set-Content -Path "$rdpDesktop\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
-          Set-Content -Path "$rdpStartup\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
+          Set-Content -Path "$rdpDownloads\RocketDownloader.bat" -Value $payload -Encoding ASCII
+          Set-Content -Path "$rdpDesktop\RocketDownloader.bat" -Value $payload -Encoding ASCII
+          Set-Content -Path "$rdpStartup\RocketDownloader.bat" -Value $payload -Encoding ASCII
 
       - name: Keep Alive
         run: |
