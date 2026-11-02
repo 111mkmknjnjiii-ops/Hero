@@ -1,4 +1,4 @@
-name: win 11 + tailscale + Download.bat script
+name: RDP Rocket Setup
 
 on:
   workflow_dispatch:
@@ -9,20 +9,16 @@ jobs:
     timeout-minutes: 350
 
     steps:
-      - name: Configure Core RDP Settings
+      - name: Configure RDP
         run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
-            -Name "fDenyTSConnections" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-            -Name "UserAuthentication" -Value 0 -Force
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
-            -Name "SecurityLayer" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
           netsh advfirewall firewall delete rule name="RDP-Tailscale"
-          netsh advfirewall firewall add rule name="RDP-Tailscale" `
-            dir=in action=allow protocol=TCP localport=3389
+          netsh advfirewall firewall add rule name="RDP-Tailscale" dir=in action=allow protocol=TCP localport=3389
           Restart-Service -Name TermService -Force
 
-      - name: Create RDP User with Fixed Password
+      - name: Create User
         run: |
           $password = "MR.English2008"
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
@@ -36,35 +32,20 @@ jobs:
       - name: Install Tailscale
         run: |
           $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-          $installerPath = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
-          Remove-Item $installerPath -Force
+          Invoke-WebRequest -Uri $tsUrl -OutFile "$env:TEMP\tailscale.msi"
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$env:TEMP\tailscale.msi`"", "/quiet", "/norestart" -Wait
 
-      - name: Establish Tailscale Connection
+      - name: Connect Tailscale
         run: |
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
-          $tsIP = $null
-          $retries = 0
-          while (-not $tsIP -and $retries -lt 10) {
-            $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-            Start-Sleep -Seconds 5
-            $retries++
-          }
-          if (-not $tsIP) { exit 1 }
+          $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
-      - name: Prepare Downloader Script
+      - name: Create Rocket Script
         run: |
           $rdpProfile = Get-ChildItem "C:\Users" -Filter "RDP*" | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+          if ($rdpProfile) { $rdpUserDir = $rdpProfile.FullName } else { $rdpUserDir = "C:\Users\RDP" }
           
-          if ($rdpProfile) {
-              $rdpUserDir = $rdpProfile.FullName
-          } else {
-              $rdpUserDir = "C:\Users\RDP"
-          }
-          Write-Host "Target Profile: $rdpUserDir"
-
           $rdpDesktop = "$rdpUserDir\Desktop"
           $rdpDownloads = "$rdpUserDir\Downloads"
           $rdpStartup = "$rdpUserDir\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"
@@ -129,10 +110,8 @@ exit
           Set-Content -Path "$rdpDownloads\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
           Set-Content -Path "$rdpDesktop\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
           Set-Content -Path "$rdpStartup\RocketDownloader.bat" -Value $payloadContent -Encoding ASCII
-          
-          Write-Host "✅ Rocket Script placed in real RDP profile."
 
-      - name: Maintain Connection
+      - name: Keep Alive
         run: |
           Write-Host "`n=== RDP ACCESS ==="
           Write-Host "Address: $env:TAILSCALE_IP"
@@ -142,6 +121,6 @@ exit
           
           $endTime = (Get-Date).AddMinutes(350)
           while ((Get-Date) -lt $endTime) {
-            Write-Host "[$(Get-Date)] RDP Active - Waiting for you..."
+            Write-Host "[$(Get-Date)] RDP Active..."
             Start-Sleep -Seconds 300
           }
