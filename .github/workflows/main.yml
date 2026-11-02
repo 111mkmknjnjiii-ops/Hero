@@ -1,4 +1,4 @@
-name: RDP Rocket Setup
+name: win 11 + tailscale + Download.bat script
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
     timeout-minutes: 350
 
     steps:
-      - name: Configure RDP
+      - name: Configure Core RDP Settings
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
@@ -18,7 +18,7 @@ jobs:
           netsh advfirewall firewall add rule name="RDP-Tailscale" dir=in action=allow protocol=TCP localport=3389
           Restart-Service -Name TermService -Force
 
-      - name: Create User
+      - name: Create RDP User
         run: |
           $password = "MR.English2008"
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
@@ -35,13 +35,13 @@ jobs:
           Invoke-WebRequest -Uri $tsUrl -OutFile "$env:TEMP\tailscale.msi"
           Start-Process msiexec.exe -ArgumentList "/i", "`"$env:TEMP\tailscale.msi`"", "/quiet", "/norestart" -Wait
 
-      - name: Connect Tailscale
+      - name: Establish Tailscale Connection
         run: |
           & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
           $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
 
-      - name: Create Rocket Script
+      - name: Prepare Downloader Script
         run: |
           $rdpProfile = Get-ChildItem "C:\Users" -Filter "RDP*" | Where-Object { $_.PSIsContainer } | Select-Object -First 1
           if ($rdpProfile) { $rdpUserDir = $rdpProfile.FullName } else { $rdpUserDir = "C:\Users\RDP" }
@@ -66,23 +66,21 @@ echo [1/7] Downloading aria2c tool...
 curl.exe -L -s -o aria2c.exe "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
 set ARIA=aria2c.exe -x 16 -s 16 -k 1M --file-allocation=none --console-log-level=error
 
-echo [2/6] Fetching MediaFire links...
-for /f "tokens=*" %%a in ('powershell -Command "`$c = (Invoke-WebRequest -Uri 'https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file' -UseBasicParsing).Content; if(`$c -match 'href=\"(https://download[^\"]+)\"'){echo `$matches[1]}"') do set XML_URL=%%a
-for /f "tokens=*" %%a in ('powershell -Command "`$c = (Invoke-WebRequest -Uri 'https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file' -UseBasicParsing).Content; if(`$c -match 'href=\"(https://download[^\"]+)\"'){echo `$matches[1]}"') do set M4A_URL=%%a
-
-echo [3/6] Downloading build.rar...
+echo [2/6] Downloading build.rar...
 %ARIA% -o build.rar "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"
 
-echo [4/6] Downloading Discord...
+echo [3/6] Downloading Discord...
 %ARIA% -o DiscordSetup.exe "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"
 
-echo [5/6] Downloading Voicemeeter and AudioRelay...
+echo [4/6] Downloading Voicemeeter...
 %ARIA% -o Voicemeeter8Setup_v3130.zip "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"
+
+echo [5/6] Downloading AudioRelay...
 %ARIA% -o AudioRelaySetup.exe "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"
 
 echo [6/6] Downloading MediaFire files...
-if not "%XML_URL%"=="" %ARIA% -o malik.xml "%XML_URL%"
-if not "%M4A_URL%"=="" %ARIA% -o Hero.m4a "%M4A_URL%"
+%ARIA% -o malik.xml "https://download850.mediafire.com/1axeek5wkwugtabX7RCw7LuQRS_X5SzZAcrFdv6dgwtijbT0UPJ1os7aJ-6LTPPWem8JfOlyGzwPBXsUM3BNfvX70JSoRD_0FUERluMd7_Pm2rqu5MpdoCMwq8YH_Fz6eWERx5yUlysXxMPVFJDgk8TZvnf3g8J2HxgfA9wkIID0Stj1/t2sdckwtlzoua1h/malik.xml"
+%ARIA% -o Hero.m4a "https://download1076.mediafire.com/ndqn2njrimlg1AZi9ZTT7Rb4BsaeWaFtSRPQkRGQtuSEbDml4UNidIEUjpGtB4_KfzoHyUJiuXMDgq8fxSlJbftWQTfSQdHmlTVh2v4TBZCBRgHTvSf-0coox2AidLDou0GxDbYV6Ag29wE-i3W3wCv5ujZcqNtGKvprFiR1Wgy6KMKO/t3y1oh7p66wzsrc/Hero.m4a"
 
 echo Installing Discord and AudioRelay silently...
 start /wait DiscordSetup.exe -s
