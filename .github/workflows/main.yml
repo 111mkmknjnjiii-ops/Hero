@@ -43,53 +43,45 @@ jobs:
 
       - name: Create Downloader Script on Desktops
         run: |
-          # البحث عن بروفايل RDP
           $rdpProfile = Get-ChildItem "C:\Users" -Filter "RDP*" | Where-Object { $_.PSIsContainer } | Select-Object -First 1
           if ($rdpProfile) { $rdpUserDir = $rdpProfile.FullName } else { $rdpUserDir = "C:\Users\RDP" }
           
           $rdpDesktop = "$rdpUserDir\Desktop"
           $publicDesktop = "C:\Users\Public\Desktop"
           
-          # إنشاء مسار الديسكتوب حق RDP اذا ما كان موجود، وتجهيز المسار العام
           if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
           
-          # سكربت الباتش 
+          # سكربت الباتش
           $payloadLines = @(
             '@echo off',
             'title RDP Rocket Downloader',
             'set DESKTOP_DIR=%USERPROFILE%\Desktop',
             'cd /d "%DESKTOP_DIR%"',
             'echo Preparing rocket downloads...',
-            'curl.exe -L -s -o aria2c.exe "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"',
-            'set ARIA=aria2c.exe -x 16 -s 16 -k 1M --file-allocation=none --console-log-level=error',
             'echo Downloading files to Desktop...',
-            '%ARIA% -o build.rar "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"',
-            '%ARIA% -o DiscordSetup.exe "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"',
-            '%ARIA% -o Voicemeeter8Setup_v3130.zip "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"',
-            '%ARIA% -o AudioRelaySetup.exe "https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe"',
-            'echo Fetching MediaFire links dynamically...',
-            'powershell -Command "$c = (Invoke-WebRequest -Uri ''https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file'' -UseBasicParsing).Content; if($c -match ''href="(https://download[^"]+)"''){ $url = $matches[1]; .\aria2c.exe -x 16 -s 16 -o malik.xml $url }"',
-            'powershell -Command "$c = (Invoke-WebRequest -Uri ''https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file'' -UseBasicParsing).Content; if($c -match ''href="(https://download[^"]+)"''){ $url = $matches[1]; .\aria2c.exe -x 16 -s 16 -o Hero.m4a $url }"',
+            'powershell -Command "Start-BitsTransfer -Source ''https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar'' -Destination ''build.rar''"',
+            'powershell -Command "Start-BitsTransfer -Source ''https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64'' -Destination ''DiscordSetup.exe''"',
+            'powershell -Command "Start-BitsTransfer -Source ''https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip'' -Destination ''Voicemeeter8Setup_v3130.zip''"',
+            'powershell -Command "Start-BitsTransfer -Source ''https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe'' -Destination ''AudioRelaySetup.exe''"',
+            'echo Fetching MediaFire files...',
+            'curl.exe -L -o "malik.xml" "https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file"',
+            'curl.exe -L -o "Hero.m4a" "https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file"',
             'echo Installing Discord and AudioRelay silently...',
             'start /wait DiscordSetup.exe -s',
             'start /wait AudioRelaySetup.exe /S',
             'echo Extracting Voicemeeter...',
             'powershell -Command "Expand-Archive -Path ''Voicemeeter8Setup_v3130.zip'' -DestinationPath ''Voicemeeter_Extracted'' -Force"',
             'powershell -Command "$exe = Get-ChildItem -Path ''Voicemeeter_Extracted'' -Filter ''Voicemeeter*Setup*.exe'' -Recurse | Select-Object -First 1; if ($exe) { Copy-Item $exe.FullName -Destination ''VoicemeeterSetup.exe'' -Force }"',
-            'del aria2c.exe',
             'echo All files are ready on your Desktop!',
             'pause'
           )
           
           $payload = $payloadLines -join "`r`n"
           
-          # حفظ الملف في الديسكتوب حق RDP
           Set-Content -Path "$rdpDesktop\Download_Files.bat" -Value $payload -Encoding ASCII
-          
-          # حفظ الملف في الديسكتوب العام (Public Desktop) عشان يبان في كل الحالات
           Set-Content -Path "$publicDesktop\Download_Files.bat" -Value $payload -Encoding ASCII
           
-          Write-Host "✅ Downloader Script placed on RDP Desktop and Public Desktop. It will NOT run automatically."
+          Write-Host "✅ Downloader Script placed on Desktops."
 
       - name: Keep Alive
         run: |
@@ -101,6 +93,6 @@ jobs:
           
           $endTime = (Get-Date).AddMinutes(350)
           while ((Get-Date) -lt $endTime) {
-            Write-Host "[$(Get-Date)] RDP Active - Monitoring connection..."
+            Write-Host "[$(Get-Date)] RDP Active..."
             Start-Sleep -Seconds 300
           }
