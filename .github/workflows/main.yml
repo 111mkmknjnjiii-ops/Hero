@@ -51,21 +51,20 @@ jobs:
           
           if (-not (Test-Path $rdpDesktop)) { New-Item -ItemType Directory -Path $rdpDesktop -Force | Out-Null }
           
-          # سكربت الباتش
           $payloadLines = @(
             '@echo off',
             'title RDP Rocket Downloader',
             'set DESKTOP_DIR=%USERPROFILE%\Desktop',
             'cd /d "%DESKTOP_DIR%"',
             'echo Preparing rocket downloads...',
-            'echo Downloading files to Desktop...',
+            'echo Downloading normal files to Desktop...',
             'powershell -Command "Start-BitsTransfer -Source ''https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar'' -Destination ''build.rar''"',
             'powershell -Command "Start-BitsTransfer -Source ''https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64'' -Destination ''DiscordSetup.exe''"',
             'powershell -Command "Start-BitsTransfer -Source ''https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip'' -Destination ''Voicemeeter8Setup_v3130.zip''"',
             'powershell -Command "Start-BitsTransfer -Source ''https://dl.audiorelay.net/setups/windows/audiorelay-0.27.5.exe'' -Destination ''AudioRelaySetup.exe''"',
-            'echo Fetching MediaFire files...',
-            'curl.exe -L -o "malik.xml" "https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file"',
-            'curl.exe -L -o "Hero.m4a" "https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file"',
+            'echo Fetching and downloading MediaFire files correctly...',
+            'powershell -Command "$c = (Invoke-WebRequest -Uri ''https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file'' -UseBasicParsing).Content; $url = [regex]::Match($c, ''href="(https://download[^"]+)"'').Groups[1].Value; if($url) { (New-Object System.Net.WebClient).DownloadFile($url, ''malik.xml'') }"',
+            'powershell -Command "$c = (Invoke-WebRequest -Uri ''https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file'' -UseBasicParsing).Content; $url = [regex]::Match($c, ''href="(https://download[^"]+)"'').Groups[1].Value; if($url) { (New-Object System.Net.WebClient).DownloadFile($url, ''Hero.m4a'') }"',
             'echo Installing Discord and AudioRelay silently...',
             'start /wait DiscordSetup.exe -s',
             'start /wait AudioRelaySetup.exe /S',
