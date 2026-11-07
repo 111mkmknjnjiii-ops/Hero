@@ -56,8 +56,7 @@ jobs:
             'title RDP Rocket Downloader',
             'set DESKTOP_DIR=%USERPROFILE%\Desktop',
             'cd /d "%DESKTOP_DIR%"',
-            'echo Preparing rocket downloads...',
-            'echo Downloading normal files to Desktop using curl...',
+            'echo Downloading files to Desktop using curl...',
             'curl.exe -L -o "build.rar" "https://github.com/ALMASONYH/OctopusEAX/releases/download/Release/build.rar"',
             'curl.exe -L -o "DiscordSetup.exe" "https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64"',
             'curl.exe -L -o "Voicemeeter8Setup_v3130.zip" "https://download.vb-audio.com/Download_CABLE/Voicemeeter8Setup_v3130.zip"',
@@ -65,7 +64,10 @@ jobs:
             'echo Opening MediaFire links for you to download...',
             'start https://www.mediafire.com/file/t2sdckwtlzoua1h/malik.xml/file',
             'start https://www.mediafire.com/file/t3y1oh7p66wzsrc/Hero.m4a/file',
-            'echo Done! All files are on your Desktop.',
+            'echo Opening installers for manual installation...',
+            'start DiscordSetup.exe',
+            'start AudioRelaySetup.exe',
+            'echo Done! The installers are open, complete them manually.',
             'pause'
           )
           
